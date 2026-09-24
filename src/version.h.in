@@ -1,0 +1,7 @@
+#pragma once
+
+#define GOTOBASIC_VERSION_MAJOR @gotobasic_VERSION_MAJOR@
+#define GOTOBASIC_VERSION_MINOR @gotobasic_VERSION_MINOR@
+#define GOTOBASIC_VERSION_PATCH @gotobasic_VERSION_PATCH@
+
+#define GOTOBASIC_VERSION_STRING "@gotobasic_VERSION@"
