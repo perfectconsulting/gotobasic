@@ -35,7 +35,7 @@ Statement::Statement(StatementFn action)
 void Statement::Execute(Environment& env) {
     std::vector<Value> args;
     
-    // evalaute all the arguments
+    // evaluate all the arguments
     args.reserve(m_argExprs.size());
     for (auto& argExpr : m_argExprs) {
         args.push_back(argExpr->Evaluate(env));
