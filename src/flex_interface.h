@@ -42,8 +42,8 @@ static bool ParseLine(const std::string& line, Basic::Environment& env) {
     yyinput_line = line;
 
     // because the parse is bottom up, you only parse the line number when the rest of the AST is
-    // already constrcuted. this is a problem for the while/wend fixups. the work-around is to 
-    // extract and store the line number perfor teh line is parsed.
+    // already constructed. this is a problem for the while/wend fixups. the work-around is to 
+    // extract and store the line number before the line is parsed.
     
     size_t i = line.find_first_not_of(' ');
     int lineNumber = i != std::string::npos && std::isdigit(line[i]) ? std::stoi(line) : -1;

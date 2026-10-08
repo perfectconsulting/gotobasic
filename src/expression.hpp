@@ -44,12 +44,12 @@ using ExprListFn = std::function<std::string(const std::vector<ExpressionPtr>&)>
 // LambdaExpression is the single concrete Expression: rather than a fresh
 // class per kind of expression, it defers Evaluate()/List() to a captured
 // LambdaFn/ExprListFn. Every expression in the language - literals,
-// variables, array reads, operators, and function calls alike - is built by
-// a "Make" function that bakes the right lambda into a LambdaExpression.
-// The operator/function "Make"s live in maths_ops.hpp, logic_ops.hpp and
-// string_ops.hpp; the leaf expressions (literals, variables, array/l-value
-// reads, and user-defined function calls) are declared below and
-// implemented in expression.cpp.
+// variables, array reads, operators, and function calls alike - is a
+// LambdaExpression with the right lambdas baked in. The operators and
+// built-in functions are built directly in the grammar actions in basic.y;
+// the leaf expressions (literals, variables, array/l-value reads, and
+// user-defined function calls) are declared below and implemented in
+// expression.cpp.
 class LambdaExpression : public Expression {
 public:
     LambdaExpression(std::vector<ExpressionPtr> operands, LambdaFn fn, ExprListFn listFn);

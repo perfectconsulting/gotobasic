@@ -39,9 +39,9 @@ using StmtListFn     = std::function<std::string(const std::vector<ExpressionPtr
 // Statement defers Execute()/List() to a captured lambda rather than
 // having a fresh class per kind of statement. m_argExprs are evaluated
 // once per Execute() into a shared Value list, which is then passed to
-// m_statementFn. Every statement in the language is built by a "Make" function
-// that bakes the right lambda into a Statement; these live in
-// statement_ops.hpp.
+// m_statementFn. Every statement in the language is a Statement with the
+// right lambdas baked in; they are built directly in the grammar actions
+// in basic.y.
 
 class Statement {
 public:

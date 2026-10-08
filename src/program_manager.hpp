@@ -89,7 +89,7 @@ public:
     // WHILE/WEND matching table. Populated at *parse* time (one entry per
     // WHILE, matched up with its WEND as the parser reaches it) and
     // consulted at run time by While()/Wend() above. This used to live as
-    // file-scope `static` globals in statement_ops.hpp, which had two
+    // file-scope `static` globals in a statement-building header, which had two
     // problems: every translation unit that included the header got its
     // own separate copy, and the table was never cleared on NEW/LOAD, so
     // stale entries (with weak_ptrs into an already-replaced program)
