@@ -280,7 +280,7 @@ Run either with:
 src/
   basic.l              Flex lexer — tokenizes keywords, identifiers, literals, operators
   basic.y              Bison grammar — parses statements/expressions into an AST
-  value.hpp/.cpp        Value type (Integer / Real / String)
+  variant.hpp/.cpp      Value type (Integer / Real / String)
   expression.hpp/.cpp   Expression AST nodes and evaluation
   expression_ops.hpp    Expression node "Make*" factory helpers
   statement.hpp/.cpp    Statement AST nodes and execution
@@ -291,6 +291,7 @@ src/
   runtime_ip.hpp/.cpp    Runtime instruction pointer / control flow (loops, GOSUB stack)
   error.hpp/.cpp         Error types
   parse_error.hpp        Parse error line-reading helper
+  assign_target.hpp      The target of an assignment-like operation
   main.cpp               Entry point (REPL and file-run modes)
 tests/                  Numbered regression scripts (01-47) plus hangman.bas and basic_trek.bas (+ variants)
 CMakeLists.txt          Build configuration (Flex/Bison + C++17)
