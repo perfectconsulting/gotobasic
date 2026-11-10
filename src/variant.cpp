@@ -1,6 +1,6 @@
 /*
  *
- *    value.cpp
+ *    variant.cpp
  *    Version 1.00 (C++17)  
  * 
  *    Copyright 2026 Steven Janes (www.perfectconsulting.co.uk)
@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <type_traits>
-#include "value.hpp"
+#include "variant.hpp"
 #include "error.h"
 
 namespace Basic {
@@ -33,42 +33,42 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 }
 
-bool Value::GetTruthy() const {
+bool Variant::GetTruthy() const {
     if (IsInteger()) return std::get<Integer>(m_data) != 0;
     if (IsReal()) return std::get<Real>(m_data) != 0.0;
     return !std::get<String>(m_data).empty();
 }
 
-Integer Value::GetInteger() const {
+Integer Variant::GetInteger() const {
     if (IsInteger()) return std::get<Integer>(m_data);
     if (IsReal()) return static_cast<Integer>(std::get<Real>(m_data));
     throw std::runtime_error("cannot convert string to number");
 }
 
-Real Value::GetReal() const {   
+Real Variant::GetReal() const {   
     if (IsReal()) return std::get<Real>(m_data);
     if (IsInteger()) return static_cast<Real>(std::get<Integer>(m_data));
     throw std::runtime_error("cannot convert string to number");
 }
 
-String Value::GetString() const {      
+String Variant::GetString() const {      
     if (IsString()) return std::get<String>(m_data);
     throw std::runtime_error("cannot convert number to string");
 }
 
-Integer Value::TryGetInteger(Environment& env, const char* name) const {
+Integer Variant::TryGetInteger(Environment& env, const char* name) const {
     if (!IsNumber())
         throw RuntimeError(env, std::string(name) + ": expected integer argument");
     return GetInteger();
 }
 
-String Value::TryGetString(Environment& env, const char* name) const {
+String Variant::TryGetString(Environment& env, const char* name) const {
     if (!IsString())
         throw RuntimeError(env, std::string(name) + ": expected string argument");
     return GetString();    
 };
 
-String Value::PPrint(const bool quoteString) const {   
+String Variant::PPrint(const bool quoteString) const {   
     if (IsString()) {
         if (quoteString) {
             return "\"" + std::get<String>(m_data) + "\"";
@@ -93,7 +93,7 @@ String Value::PPrint(const bool quoteString) const {
     throw std::runtime_error("cannot pretty print");
 }
 
-void Value::NormaliseType(bool forceString) {
+void Variant::NormaliseType(bool forceString) {
     if (IsString()){
         if (forceString) return;
         
@@ -121,44 +121,44 @@ void Value::NormaliseType(bool forceString) {
     }
 }
 
-Value Value::AddOp(const Value& value, Environment& env) const{
+Variant Variant::AddOp(const Variant& value, Environment& env) const{
     return std::visit(overloaded{
-        [](const String& a, const String& b) -> Value { return Value(a + b); },
-        [](const Integer& a, const Integer& b) -> Value { return Value(a + b); },
-        [&env](const auto& a, const auto& b) -> Value {
+        [](const String& a, const String& b) -> Variant { return Variant(a + b); },
+        [](const Integer& a, const Integer& b) -> Variant { return Variant(a + b); },
+        [&env](const auto& a, const auto& b) -> Variant {
             if constexpr (std::is_same_v<std::decay_t<decltype(a)>, String> || std::is_same_v<std::decay_t<decltype(b)>, String>)
                 throw RuntimeError(env, "type mismatch: expected numeric or string operands");
             else
-                return Value(static_cast<Real>(a) + static_cast<Real>(b));
+                return Variant(static_cast<Real>(a) + static_cast<Real>(b));
         }
     }, m_data, value.m_data);
 }
 
-Value Value::SubOp(const Value& value, Environment& env) const {
+Variant Variant::SubOp(const Variant& value, Environment& env) const {
     if (!IsNumber()|| ! value.IsNumber())
         throw RuntimeError(env, "type mismatch: expected numeric operands");
 
     if (IsReal() || value.IsReal())
     {
-        return Value(GetReal() - value.GetReal());
+        return Variant(GetReal() - value.GetReal());
     }
 
-    return Value(GetInteger() - value.GetInteger());
+    return Variant(GetInteger() - value.GetInteger());
 }
 
-Value Value::MulOp(const Value& value, Environment& env) const {
+Variant Variant::MulOp(const Variant& value, Environment& env) const {
     if (!IsNumber()|| ! value.IsNumber())
         throw RuntimeError(env, "type mismatch: expected numeric operands");
 
     if (IsReal() || value.IsReal())
     {
-        return Value(GetReal() * value.GetReal());
+        return Variant(GetReal() * value.GetReal());
     }
 
-    return Value(GetInteger() * value.GetInteger());;
+    return Variant(GetInteger() * value.GetInteger());;
 }
 
-Value Value::DivOp(const Value& value, Environment& env) const {
+Variant Variant::DivOp(const Variant& value, Environment& env) const {
     if (!IsNumber()|| ! value.IsNumber())
         throw RuntimeError(env, "type mismatch: expected numeric operands");
 
@@ -167,16 +167,16 @@ Value Value::DivOp(const Value& value, Environment& env) const {
         if (value.GetReal() == 0.0)
             throw RuntimeError(env, "division by zero");
 
-        return Value(GetReal() / value.GetReal());
+        return Variant(GetReal() / value.GetReal());
     }
 
     if (value.GetInteger() == 0)
         throw RuntimeError(env, "division by zero");
 
-    return Value(GetInteger() / value.GetInteger());
+    return Variant(GetInteger() / value.GetInteger());
 }
 
-int Value::CompareOp(const Value& value, Environment& env) const {
+int Variant::CompareOp(const Variant& value, Environment& env) const {
     return std::visit(overloaded{
         [](const String& a, const String& b) -> int { return a.compare(b); },
         [&env](const auto& a, const auto& b) -> int {
@@ -188,7 +188,7 @@ int Value::CompareOp(const Value& value, Environment& env) const {
     }, m_data, value.m_data);
 }    
 
-Value Value::PowOp(const Value& value, Environment& env) const {
+Variant Variant::PowOp(const Variant& value, Environment& env) const {
     if (!IsNumber()|| ! value.IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
@@ -196,59 +196,59 @@ Value Value::PowOp(const Value& value, Environment& env) const {
     return static_cast<int>(std::pow(GetReal(), value.GetReal()));
 }   
 
-Value Value::AbsOp(Environment& env) const {
+Variant Variant::AbsOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
     if (IsReal()) {
-        return Value(std::abs(GetReal()));
+        return Variant(std::abs(GetReal()));
     }
 
-    return Value(std::abs(GetInteger()));
+    return Variant(std::abs(GetInteger()));
 }   
 
-Value Value::AtnOp(Environment& env) const {
+Variant Variant::AtnOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(std::atan(GetReal()));
+    return Variant(std::atan(GetReal()));
 }   
 
-Value Value::CosOp(Environment& env) const {
+Variant Variant::CosOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(std::cos(GetReal()));
+    return Variant(std::cos(GetReal()));
 }   
 
-Value Value::SinOp(Environment& env) const {
+Variant Variant::SinOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(std::sin(GetReal()));
+    return Variant(std::sin(GetReal()));
 }   
 
-Value Value::TanOp(Environment& env) const {
+Variant Variant::TanOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(std::tan(GetReal()));
+    return Variant(std::tan(GetReal()));
 } 
 
-Value Value::ExpOp(Environment& env) const {
+Variant Variant::ExpOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(std::exp(GetReal()));
+    return Variant(std::exp(GetReal()));
 }
 
-Value Value::SqrOp(Environment& env) const {
+Variant Variant::SqrOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
@@ -257,27 +257,27 @@ Value Value::SqrOp(Environment& env) const {
         throw RuntimeError(env, "argument can't be zero");
     }
 
-    return Value(std::sqrt(GetReal()));
+    return Variant(std::sqrt(GetReal()));
 }
 
-Value Value::IntOp(Environment& env) const {
+Variant Variant::IntOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
 
-    return Value(std::floor(GetReal()));
+    return Variant(std::floor(GetReal()));
 }
 
-Value Value::SgnOp(Environment& env) const {
+Variant Variant::SgnOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
 
-    return Value(CompareOp(Value(0), env));
+    return Variant(CompareOp(Variant(0), env));
 }
 
-Value Value::LogOp(Environment& env) const {
+Variant Variant::LogOp(Environment& env) const {
     if (!IsNumber()){
         throw RuntimeError(env, "type mismatch: expected numeric operands");
     }
@@ -287,12 +287,12 @@ Value Value::LogOp(Environment& env) const {
     }
 
 
-    return Value(std::log(GetReal()));
+    return Variant(std::log(GetReal()));
 }
 
-Value Value::RndOp(Environment& env) const {
+Variant Variant::RndOp(Environment& env) const {
     Real n = (static_cast<double>(rand()) / RAND_MAX) * GetInteger();
-    return Value(n);
+    return Variant(n);
 }
 
 } // namespace Basic

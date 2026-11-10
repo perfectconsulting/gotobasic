@@ -27,18 +27,18 @@
 #include <vector>
 #include "forward_references.hpp"
 #include "environment.hpp"
-#include "value.hpp"
+#include "variant.hpp"
 
 namespace Basic {
 
 class Expression {
 public:
     virtual ~Expression() = default;
-    virtual Value Evaluate(Environment& env) const = 0;
+    virtual Variant Evaluate(Environment& env) const = 0;
     virtual std::string List() const = 0;
 };
 
-using LambdaFn = std::function<Value(const std::vector<Value>&, Environment&)>;
+using LambdaFn = std::function<Variant(const std::vector<Variant>&, Environment&)>;
 using ExprListFn = std::function<std::string(const std::vector<ExpressionPtr>&)>;
 
 // LambdaExpression is the single concrete Expression: rather than a fresh
@@ -47,13 +47,13 @@ using ExprListFn = std::function<std::string(const std::vector<ExpressionPtr>&)>
 // variables, array reads, operators, and function calls alike - is a
 // LambdaExpression with the right lambdas baked in. The operators and
 // built-in functions are built directly in the grammar actions in basic.y;
-// the leaf expressions (literals, variables, array/l-value reads, and
+// the leaf expressions (literals, variables, array reads, and
 // user-defined function calls) are declared below and implemented in
 // expression.cpp.
 class LambdaExpression : public Expression {
 public:
     LambdaExpression(std::vector<ExpressionPtr> operands, LambdaFn fn, ExprListFn listFn);
-    Value       Evaluate(Environment& env) const override;
+    Variant       Evaluate(Environment& env) const override;
     std::string List() const override;
 private:
     std::vector<ExpressionPtr> m_operands;
@@ -63,11 +63,10 @@ private:
 
 // ── Leaf expressions ─────────────────────────────────────────────────────────
 
-ExpressionPtr MakeLiteral(const Value& value);
+ExpressionPtr MakeLiteral(const Variant& value);
 ExpressionPtr MakeStringLiteral(const std::string& value);
 ExpressionPtr MakeVariable(const std::string& name);
 ExpressionPtr MakeArray(std::string name, std::vector<ExpressionPtr> indices);
-ExpressionPtr MakeLValue(LValue lv);
 ExpressionPtr MakeUserFn(std::string name, ExpressionPtr arg);
 
 } // namespace Basic

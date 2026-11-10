@@ -33,7 +33,7 @@ Statement::Statement(StatementFn action)
     : m_statementFn(std::move(action)) {}
 
 void Statement::Execute(Environment& env) {
-    std::vector<Value> args;
+    std::vector<Variant> args;
     
     // evaluate all the arguments
     args.reserve(m_argExprs.size());

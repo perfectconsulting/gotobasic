@@ -27,7 +27,7 @@ namespace Basic {
 namespace {
 
 // Shared List() formatting for "name" or "name(idx, idx, ...)", used by
-// both MakeArray and MakeLValue.
+// both MakeArray and AssignTarget::List.
 std::string FormatNameIndices(const std::string& name, const std::vector<ExpressionPtr>& indices) {
     if (indices.empty()) return name;
     std::string s = name + "(";
@@ -38,7 +38,7 @@ std::string FormatNameIndices(const std::string& name, const std::vector<Express
     return s + ")";
 }
 
-std::vector<int> ToIntegers(const std::vector<Value>& args) {
+std::vector<int> ToIntegers(const std::vector<Variant>& args) {
     std::vector<int> idx;
     idx.reserve(args.size());
     for (auto& v : args)
@@ -48,11 +48,15 @@ std::vector<int> ToIntegers(const std::vector<Value>& args) {
 
 } // namespace
 
+std::string AssignTarget::List() const {
+    return FormatNameIndices(name, indices);
+}
+
 LambdaExpression::LambdaExpression(std::vector<ExpressionPtr> operands, LambdaFn fn, ExprListFn listFn)
     : m_operands(std::move(operands)), m_fn(std::move(fn)), m_listFn(std::move(listFn)) {}
 
-Value LambdaExpression::Evaluate(Environment& env) const {
-    std::vector<Value> args;
+Variant LambdaExpression::Evaluate(Environment& env) const {
+    std::vector<Variant> args;
     args.reserve(m_operands.size());
     for (auto& operand : m_operands)
         args.push_back(operand->Evaluate(env));
@@ -64,9 +68,9 @@ std::string LambdaExpression::List() const {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-ExpressionPtr MakeLiteral(const Value& value) {
+ExpressionPtr MakeLiteral(const Variant& value) {
     return std::make_shared<LambdaExpression>(std::vector<ExpressionPtr>{},
-        [value](const std::vector<Value>&, Environment&) -> Value {
+        [value](const std::vector<Variant>&, Environment&) -> Variant {
             return value;
         },
         [value](const std::vector<ExpressionPtr>&) -> std::string {
@@ -76,18 +80,18 @@ ExpressionPtr MakeLiteral(const Value& value) {
 
 ExpressionPtr MakeStringLiteral(const std::string& value) {
     return std::make_shared<LambdaExpression>(std::vector<ExpressionPtr>{},
-        [value](const std::vector<Value>&, Environment&) -> Value {
-            return Value(value);
+        [value](const std::vector<Variant>&, Environment&) -> Variant {
+            return Variant(value);
         },
         [value](const std::vector<ExpressionPtr>&) -> std::string {
             return "\"" + value + "\"";
         });
 }
 
-// ── L-values as r-values ──────────────────────────────────────────────────────
+// ── Variable and array reads ──────────────────────────────────────────────────
 ExpressionPtr MakeVariable(const std::string& name) {
     return std::make_shared<LambdaExpression>(std::vector<ExpressionPtr>{},
-        [name](const std::vector<Value>&, Environment& env) -> Value {
+        [name](const std::vector<Variant>&, Environment& env) -> Variant {
             return env.GetVariable(name);
         },
         [name](const std::vector<ExpressionPtr>&) -> std::string {
@@ -97,20 +101,7 @@ ExpressionPtr MakeVariable(const std::string& name) {
 
 ExpressionPtr MakeArray(std::string name, std::vector<ExpressionPtr> indices) {
     return std::make_shared<LambdaExpression>(std::move(indices),
-        [name](const std::vector<Value>& args, Environment& env) -> Value {
-            return env.GetArray(name, ToIntegers(args));
-        },
-        [name](const std::vector<ExpressionPtr>& ops) -> std::string {
-            return FormatNameIndices(name, ops);
-        });
-}
-
-ExpressionPtr MakeLValue(LValue lv) {
-    std::string name = lv.name;
-    return std::make_shared<LambdaExpression>(std::move(lv.indices),
-        [name](const std::vector<Value>& args, Environment& env) -> Value {
-            if (args.empty())
-                return env.GetVariable(name);
+        [name](const std::vector<Variant>& args, Environment& env) -> Variant {
             return env.GetArray(name, ToIntegers(args));
         },
         [name](const std::vector<ExpressionPtr>& ops) -> std::string {
@@ -121,7 +112,7 @@ ExpressionPtr MakeLValue(LValue lv) {
 // ── User-defined functions ────────────────────────────────────────────────────
 ExpressionPtr MakeUserFn(std::string name, ExpressionPtr arg) {
     return std::make_shared<LambdaExpression>(std::vector<ExpressionPtr>{std::move(arg)},
-        [name](const std::vector<Value>& args, Environment& env) -> Value {
+        [name](const std::vector<Variant>& args, Environment& env) -> Variant {
             return env.CallFunction(name, args[0]);
         },
         [name](const std::vector<ExpressionPtr>& ops) -> std::string {

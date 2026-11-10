@@ -4,7 +4,7 @@
     #include <memory>
     #include "expression.hpp"
     #include "statement.hpp"
-    #include "value.hpp"
+    #include "variant.hpp"
     #include "environment.hpp"
 
     namespace Basic {
@@ -77,9 +77,9 @@ struct ParseErrorReported {};
     std::vector<Basic::ArrayDecl>*  dimlist;
     std::vector<Basic::PrintItem>* printitems;
     Basic::PrintArgs*  printargs;
-    Basic::LValue*  lval;
-    std::vector<Basic::LValue>*  lvallist;
-    std::vector<Basic::Value>*  vallist;
+    Basic::AssignTarget*                target;
+    std::vector<Basic::AssignTarget>*  targetlist;
+    std::vector<Basic::Variant>*  vallist;
 }
 
 %parse-param { Basic::Environment& env }
@@ -107,8 +107,8 @@ struct ParseErrorReported {};
 %type <printitems> printlist
 %type <printargs>  printargs
 %type <sval>       inputprompt
-%type <lval>       lval
-%type <lvallist>   lvallist
+%type <target>     target
+%type <targetlist> targetlist
 %type <vallist>    constlist
 
 %left KW_OR
@@ -177,40 +177,40 @@ stmt
 command
     : KW_LIST {
         $$ = new_stmt(std::make_shared<Statement>(
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().ListProgram(std::cout, -1, -1);
             }));
     }
     | KW_LIST INTEGER ',' INTEGER {
         int first = $2, last = $4;
         $$ = new_stmt(std::make_shared<Statement>(
-            [first, last](const std::vector<Value>& args, Environment& env) {
+            [first, last](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().ListProgram(std::cout, first, last);
             }));
     }
     | KW_RUN {
         $$ = new_stmt(std::make_shared<Statement>(
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().Run();
             }));
     }
     | KW_NEW {
         $$ = new_stmt(std::make_shared<Statement>(
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().New();
             }));
     }
     | KW_DELETE INTEGER {
         int first = $2, last = $2;
         $$ = new_stmt(std::make_shared<Statement>(
-            [first, last](const std::vector<Value>& args, Environment& env) {
+            [first, last](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().DeleteLines(first, last);
             }));
     }
     | KW_DELETE INTEGER ',' INTEGER {
         int first = $2, last = $4;
         $$ = new_stmt(std::make_shared<Statement>(
-            [first, last](const std::vector<Value>& args, Environment& env) {
+            [first, last](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().DeleteLines(first, last);
             }));
     }
@@ -218,7 +218,7 @@ command
         std::string filename = *$2;
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(
-            [filename](const std::vector<Value>& args, Environment& env) {
+            [filename](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().SetPendingLoad(filename);
             }));
     }
@@ -226,52 +226,52 @@ command
         std::string filename = *$2;
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(
-            [filename](const std::vector<Value>& args, Environment& env) {
+            [filename](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().SetPendingSave(filename);
             }));
     }
     | KW_TRON {
         $$ = new_stmt(std::make_shared<Statement>(
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().Tron();
             }));
     }
     | KW_TROFF {
         $$ = new_stmt(std::make_shared<Statement>(
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().Troff();
             }));
     }
     ;
 
-/* ── Unified l-value: scalar variable or subscripted array ──────────────── */
-lval
+/* ── Assignment target: scalar variable or subscripted array ──────────────── */
+target
     : IDENTIFIER {
-        $$ = new Basic::LValue{*$1, {}};
+        $$ = new Basic::AssignTarget{*$1, {}};
         delete $1;
     }
     | STRIDENTIFIER {
-        $$ = new Basic::LValue{*$1, {}};
+        $$ = new Basic::AssignTarget{*$1, {}};
         delete $1;
     }
     | IDENTIFIER '(' exprlist ')' {
-        $$ = new Basic::LValue{*$1, std::move(*$3)};
+        $$ = new Basic::AssignTarget{*$1, std::move(*$3)};
         delete $1; delete $3;
     }
     | STRIDENTIFIER '(' exprlist ')' {
-        $$ = new Basic::LValue{*$1, std::move(*$3)};
+        $$ = new Basic::AssignTarget{*$1, std::move(*$3)};
         delete $1; delete $3;
     }
     ;
 
-/* Comma-separated list of l-values (INPUT, READ) */
-lvallist
-    : lval {
-        $$ = new std::vector<Basic::LValue>();
+/* Comma-separated list of assignment targets (INPUT, READ) */
+targetlist
+    : target {
+        $$ = new std::vector<Basic::AssignTarget>();
         $$->push_back(std::move(*$1));
         delete $1;
     }
-    | lvallist ',' lval {
+    | targetlist ',' target {
         $1->push_back(std::move(*$3));
         delete $3;
         $$ = $1;
@@ -283,45 +283,45 @@ lvallist
    expression grammar introducing shift/reduce ambiguity. */
 constlist
     : INTEGER {
-        $$ = new std::vector<Basic::Value>();
-        $$->push_back(Basic::Value((Real)$1));
+        $$ = new std::vector<Basic::Variant>();
+        $$->push_back(Basic::Variant((Real)$1));
     }
     | FLOAT {
-        $$ = new std::vector<Basic::Value>();
-        $$->push_back(Basic::Value($1));
+        $$ = new std::vector<Basic::Variant>();
+        $$->push_back(Basic::Variant($1));
     }
     | STRING {
-        $$ = new std::vector<Basic::Value>();
-        $$->push_back(Basic::Value(*$1));
+        $$ = new std::vector<Basic::Variant>();
+        $$->push_back(Basic::Variant(*$1));
         delete $1;
     }
     | '-' INTEGER {
-        $$ = new std::vector<Basic::Value>();
-        $$->push_back(Basic::Value(-(Integer)$2));
+        $$ = new std::vector<Basic::Variant>();
+        $$->push_back(Basic::Variant(-(Integer)$2));
     }
     | '-' FLOAT {
-        $$ = new std::vector<Basic::Value>();
-        $$->push_back(Basic::Value(-$2));
+        $$ = new std::vector<Basic::Variant>();
+        $$->push_back(Basic::Variant(-$2));
     }
     | constlist ',' INTEGER {
-        $1->push_back(Basic::Value((Integer)$3));
+        $1->push_back(Basic::Variant((Integer)$3));
         $$ = $1;
     }
     | constlist ',' FLOAT {
-        $1->push_back(Basic::Value($3));
+        $1->push_back(Basic::Variant($3));
         $$ = $1;
     }
     | constlist ',' STRING {
-        $1->push_back(Basic::Value(*$3));
+        $1->push_back(Basic::Variant(*$3));
         delete $3;
         $$ = $1;
     }
     | constlist ',' '-' INTEGER {
-        $1->push_back(Basic::Value(-(Integer)$4));
+        $1->push_back(Basic::Variant(-(Integer)$4));
         $$ = $1;
     }
     | constlist ',' '-' FLOAT {
-        $1->push_back(Basic::Value(-$4));
+        $1->push_back(Basic::Variant(-$4));
         $$ = $1;
     }
     ;
@@ -335,22 +335,22 @@ constlist
  * by value into the lambdas. */
 statement
     /* LET with optional keyword */
-    : KW_LET lval '=' expr {
-        LValue target = std::move(*$2);
+    : KW_LET target '=' expr {
+        AssignTarget target = std::move(*$2);
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($4)},
-            [target](const std::vector<Value>& args, Environment& env) {
+            [target](const std::vector<Variant>& args, Environment& env) {
                 env.Assign(target, args[0]);
             },
             [target](const std::vector<ExpressionPtr>& args) {
                 return "LET " + target.List() + " = " + args[0]->List();
             }));
     }
-    | lval '=' expr {
-        LValue target = std::move(*$1);
+    | target '=' expr {
+        AssignTarget target = std::move(*$1);
         delete $1;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($3)},
-            [target](const std::vector<Value>& args, Environment& env) {
+            [target](const std::vector<Variant>& args, Environment& env) {
                 env.Assign(target, args[0]);
             },
             [target](const std::vector<ExpressionPtr>& args) {
@@ -369,7 +369,7 @@ statement
             argExprs.push_back(item.expr);
 
         $$ = new_stmt(std::make_shared<Statement>(std::move(argExprs),
-            [items, newline](const std::vector<Value>& args, Environment&) {
+            [items, newline](const std::vector<Variant>& args, Environment&) {
                 int col = 0;
                 for (size_t i = 0; i < items.size(); ++i) {
                     const auto& item = items[i];
@@ -377,7 +377,7 @@ statement
                         int target = args[i].GetInteger();
                         while (col < target - 1) { std::cout << ' '; ++col; }
                     } else {
-                        const Value& val = args[i];
+                        const Variant& val = args[i];
                         std::string s = val.PPrint();
                         if (val.IsNumber()) {
                             bool negative = (!s.empty() && s[0] == '-');
@@ -411,13 +411,13 @@ statement
                 return s;
             }));
     }
-    /* INPUT – prompt is optional (see inputprompt); variables use lvallist */
-    | KW_INPUT inputprompt lvallist {
+    /* INPUT – prompt is optional (see inputprompt); variables use targetlist */
+    | KW_INPUT inputprompt targetlist {
         std::string prompt = std::move(*$2);
-        std::vector<LValue> targets = std::move(*$3);
+        std::vector<AssignTarget> targets = std::move(*$3);
         delete $2; delete $3;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [prompt, targets](const std::vector<Value>&, Environment& env) {
+            [prompt, targets](const std::vector<Variant>&, Environment& env) {
                 std::cout << prompt << std::flush;
                 std::string line;
                 if (!std::getline(std::cin, line))
@@ -436,7 +436,7 @@ statement
                     while (!s.empty() && s.front() == ' ') s.erase(s.begin());
                     while (!s.empty() && s.back()  == ' ') s.pop_back();
 
-                    Value val(s);
+                    Variant val(s);
                     val.NormaliseType(targets[i].isString());
                     env.Assign(targets[i], val);
                 }
@@ -455,7 +455,7 @@ statement
         StatementPtr thenBranch = take_stmt($4);
         StatementPtr elseBranch = nullptr;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [thenBranch, elseBranch](const std::vector<Value>& args, Environment& env) {
+            [thenBranch, elseBranch](const std::vector<Variant>& args, Environment& env) {
                 if (args[0].GetTruthy())
                     env.GetProgramManager().SetRuntimeStatement(thenBranch);
                 else if (elseBranch)
@@ -471,7 +471,7 @@ statement
         StatementPtr thenBranch = take_stmt($4);
         StatementPtr elseBranch = take_stmt($6);
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [thenBranch, elseBranch](const std::vector<Value>& args, Environment& env) {
+            [thenBranch, elseBranch](const std::vector<Variant>& args, Environment& env) {
                 if (args[0].GetTruthy())
                     env.GetProgramManager().SetRuntimeStatement(thenBranch);
                 else if (elseBranch)
@@ -487,7 +487,7 @@ statement
         // "IF cond THEN 100" is shorthand for "IF cond THEN GOTO 100"
         int targetLine = (int)$4;
         StatementPtr thenBranch = std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [targetLine](const std::vector<Value>&, Environment& env) {
+            [targetLine](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Goto(targetLine);
             },
             [targetLine](const std::vector<ExpressionPtr>&) {
@@ -495,7 +495,7 @@ statement
             });
         StatementPtr elseBranch = nullptr;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [thenBranch, elseBranch](const std::vector<Value>& args, Environment& env) {
+            [thenBranch, elseBranch](const std::vector<Variant>& args, Environment& env) {
                 if (args[0].GetTruthy())
                     env.GetProgramManager().SetRuntimeStatement(thenBranch);
                 else if (elseBranch)
@@ -511,7 +511,7 @@ statement
     | KW_GOTO INTEGER {
         int lineNumber = (int)$2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [lineNumber](const std::vector<Value>&, Environment& env) {
+            [lineNumber](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Goto(lineNumber);
             },
             [lineNumber](const std::vector<ExpressionPtr>&) {
@@ -521,7 +521,7 @@ statement
     | KW_GOSUB INTEGER {
         int lineNumber = (int)$2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [lineNumber](const std::vector<Value>&, Environment& env) {
+            [lineNumber](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Gosub(lineNumber);
             },
             [lineNumber](const std::vector<ExpressionPtr>&) {
@@ -532,7 +532,7 @@ statement
         std::vector<int> lines = std::move(*$4);
         delete $4;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [lines](const std::vector<Value>& args, Environment& env) {
+            [lines](const std::vector<Variant>& args, Environment& env) {
                 Integer idx = args[0].GetInteger() - 1;
                 if (idx >= 0 && idx < static_cast<Integer>(lines.size()))
                     env.GetProgramManager().Goto(lines[idx]);
@@ -550,7 +550,7 @@ statement
         std::vector<int> lines = std::move(*$4);
         delete $4;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [lines](const std::vector<Value>& args, Environment& env) {
+            [lines](const std::vector<Variant>& args, Environment& env) {
                 Integer idx = args[0].GetInteger() - 1;
                 if (idx >= 0 && idx < static_cast<Integer>(lines.size()))
                     env.GetProgramManager().Gosub(lines[idx]);
@@ -566,22 +566,22 @@ statement
     }
     | KW_RETURN {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Return();
             },
             [](const std::vector<ExpressionPtr>&) { return "RETURN"; }));
     }
-    /* FOR / NEXT – loop variable is an lval. Uses Value throughout so
+    /* FOR / NEXT – loop variable is an assignment target. Uses Value throughout so
        fractional STEP values work correctly. */
-    | KW_FOR lval '=' expr KW_TO expr {
-        LValue target = std::move(*$2);
+    | KW_FOR target '=' expr KW_TO expr {
+        AssignTarget target = std::move(*$2);
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(
             std::vector<ExpressionPtr>{take_expr($4), take_expr($6)},
-            [target](const std::vector<Value>& args, Environment& env) {
-                Value startVal = args[0];
-                Value limitVal = args[1];
-                Value stepVal  = Value(1);
+            [target](const std::vector<Variant>& args, Environment& env) {
+                Variant startVal = args[0];
+                Variant limitVal = args[1];
+                Variant stepVal  = Variant(1);
 
                 env.GetProgramManager().For(target.name, startVal, limitVal, stepVal);
             },
@@ -589,15 +589,15 @@ statement
                 return "FOR " + target.List() + " = " + args[0]->List() + " TO " + args[1]->List();
             }));
     }
-    | KW_FOR lval '=' expr KW_TO expr KW_STEP expr {
-        LValue target = std::move(*$2);
+    | KW_FOR target '=' expr KW_TO expr KW_STEP expr {
+        AssignTarget target = std::move(*$2);
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(
             std::vector<ExpressionPtr>{take_expr($4), take_expr($6), take_expr($8)},
-            [target](const std::vector<Value>& args, Environment& env) {
-                Value startVal = args[0];
-                Value limitVal = args[1];
-                Value stepVal  = args[2];
+            [target](const std::vector<Variant>& args, Environment& env) {
+                Variant startVal = args[0];
+                Variant limitVal = args[1];
+                Variant stepVal  = args[2];
 
                 env.GetProgramManager().For(target.name, startVal, limitVal, stepVal);
             },
@@ -608,7 +608,7 @@ statement
     }
     | KW_NEXT {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Next("");
             },
             [](const std::vector<ExpressionPtr>&) { return std::string("NEXT"); }));
@@ -617,7 +617,7 @@ statement
         std::string variable = *$2;
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [variable](const std::vector<Value>&, Environment& env) {
+            [variable](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Next(variable);
             },
             [variable](const std::vector<ExpressionPtr>&) {
@@ -629,7 +629,7 @@ statement
         std::vector<ArrayDecl> decls = std::move(*$2);
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [decls](const std::vector<Value>&, Environment& env) {
+            [decls](const std::vector<Variant>&, Environment& env) {
                 for (auto& decl : decls) {
                     std::vector<int> dims;
                     for (auto& dimExpr : decl.dims)
@@ -658,7 +658,7 @@ statement
         ExpressionPtr body = take_expr($7);
         delete $2; delete $4;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [name, param, body](const std::vector<Value>&, Environment& env) {
+            [name, param, body](const std::vector<Variant>&, Environment& env) {
                 env.DefFunction(name, param, body);
             },
             [name, param, body](const std::vector<ExpressionPtr>&) {
@@ -668,14 +668,14 @@ statement
     /* END / STOP / EXIT / REM */
     | KW_END {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().End();
             },
             [](const std::vector<ExpressionPtr>&) { return "END"; }));
     }
     | KW_STOP {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Stop();
             },
             [](const std::vector<ExpressionPtr>&) { return "STOP"; }));
@@ -683,7 +683,7 @@ statement
     /* EXIT triggers a clean shutdown via the exit flag rather than std::exit(). */
     | KW_EXIT {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().SetExitFlag(true);
             },
             [](const std::vector<ExpressionPtr>&) { return "EXIT"; }));
@@ -692,17 +692,17 @@ statement
         std::string text = *$1;
         delete $1;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment&) {},
+            [](const std::vector<Variant>&, Environment&) {},
             [text](const std::vector<ExpressionPtr>&) { return "REM" + text; }));
     }
     /* READ / RESTORE */
-    | KW_READ lvallist {
-        std::vector<LValue> targets = std::move(*$2);
+    | KW_READ targetlist {
+        std::vector<AssignTarget> targets = std::move(*$2);
         delete $2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [targets](const std::vector<Value>&, Environment& env) {
+            [targets](const std::vector<Variant>&, Environment& env) {
                 for (auto& lv : targets) {
-                    Value val = env.GetDataManager().ReadData(env);
+                    Variant val = env.GetDataManager().ReadData(env);
                     val.NormaliseType(lv.isString());
                     env.Assign(lv, val);
                 }
@@ -718,7 +718,7 @@ statement
     }
     | KW_RESTORE {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.GetDataManager().RestoreData(-1, true);
             },
             [](const std::vector<ExpressionPtr>&) { return "RESTORE"; }));
@@ -726,7 +726,7 @@ statement
     | KW_RESTORE INTEGER {
         int lineNumber = (int)$2;
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [lineNumber](const std::vector<Value>&, Environment& env) {
+            [lineNumber](const std::vector<Variant>&, Environment& env) {
                 env.GetDataManager().RestoreData(lineNumber, true);
             },
             [lineNumber](const std::vector<ExpressionPtr>&) {
@@ -736,14 +736,14 @@ statement
     /* RANDOMIZE / CLEAR / CLS */
     | KW_RANDOMIZE {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) {
+            [](const std::vector<Variant>&, Environment& env) {
                 env.Randomize(-1);
             },
             [](const std::vector<ExpressionPtr>&) { return "RANDOMIZE"; }));
     }
     | KW_RANDOMIZE expr {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{take_expr($2)},
-            [](const std::vector<Value>& args, Environment& env) {
+            [](const std::vector<Variant>& args, Environment& env) {
                 env.Randomize(static_cast<long>(args[0].GetInteger()));
             },
             [](const std::vector<ExpressionPtr>& args) {
@@ -752,12 +752,12 @@ statement
     }
     | KW_CLEAR {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment& env) { env.ClearVariables(); },
+            [](const std::vector<Variant>&, Environment& env) { env.ClearVariables(); },
             [](const std::vector<ExpressionPtr>&) { return "CLEAR"; }));
     }
     | KW_CLS {
         $$ = new_stmt(std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [](const std::vector<Value>&, Environment&) {
+            [](const std::vector<Variant>&, Environment&) {
 #ifdef _WIN32
                 std::system("cls");
 #else
@@ -775,7 +775,7 @@ statement
 
         StatementPtr whileStatement = std::make_shared<Statement>(
             std::vector<ExpressionPtr>{take_expr($2)},
-            [whileId](const std::vector<Value>& args, Environment& env) {
+            [whileId](const std::vector<Variant>& args, Environment& env) {
                 env.GetProgramManager().While(args[0], env.GetProgramManager().GetWhileFrame(whileId).m_wendip);
             },
             [](const std::vector<ExpressionPtr>& args) {
@@ -795,7 +795,7 @@ statement
         int whileId = env.GetProgramManager().PopWhileId();
 
         StatementPtr wendStatement = std::make_shared<Statement>(std::vector<ExpressionPtr>{},
-            [whileId](const std::vector<Value>&, Environment& env) {
+            [whileId](const std::vector<Variant>&, Environment& env) {
                 env.GetProgramManager().Wend(env.GetProgramManager().GetWhileFrame(whileId).m_whileip);
             },
             [](const std::vector<ExpressionPtr>&) { return "WEND"; });
@@ -935,8 +935,8 @@ inputprompt
  * evaluated operands and a lambda that renders the expression back to text
  * for LIST. */
 expr
-    : INTEGER      { $$ = new_expr(MakeLiteral(Value((Integer)$1))); }
-    | FLOAT        { $$ = new_expr(MakeLiteral(Value((Real)$1))); }
+    : INTEGER      { $$ = new_expr(MakeLiteral(Variant((Integer)$1))); }
+    | FLOAT        { $$ = new_expr(MakeLiteral(Variant((Real)$1))); }
     | STRING       { $$ = new_expr(MakeStringLiteral(*$1)); delete $1; }
     | IDENTIFIER   { $$ = new_expr(MakeVariable(*$1)); delete $1; }
     | STRIDENTIFIER{ $$ = new_expr(MakeVariable(*$1)); delete $1; }
@@ -955,7 +955,7 @@ expr
     | expr '+' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].AddOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {
@@ -965,7 +965,7 @@ expr
     | expr '-' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].SubOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {
@@ -975,7 +975,7 @@ expr
     | expr '*' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].MulOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {
@@ -985,7 +985,7 @@ expr
     | expr '/' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].DivOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {
@@ -995,7 +995,7 @@ expr
     | expr '^' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].PowOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {
@@ -1005,8 +1005,8 @@ expr
     | expr '=' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) == 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) == 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " = " + ops[1]->List();
@@ -1015,8 +1015,8 @@ expr
     | expr NEQ expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) != 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) != 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " <> " + ops[1]->List();
@@ -1025,8 +1025,8 @@ expr
     | expr '<' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) < 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) < 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " < " + ops[1]->List();
@@ -1035,8 +1035,8 @@ expr
     | expr LEQ expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) <= 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) <= 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " <= " + ops[1]->List();
@@ -1045,8 +1045,8 @@ expr
     | expr '>' expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) > 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) > 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " > " + ops[1]->List();
@@ -1055,8 +1055,8 @@ expr
     | expr GEQ expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CompareOp(args[1], env) >= 0);
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CompareOp(args[1], env) >= 0);
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " >= " + ops[1]->List();
@@ -1065,8 +1065,8 @@ expr
     | expr KW_AND expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment&) -> Value {
-                return Value(static_cast<Integer>(args[0].GetTruthy() && args[1].GetTruthy() ? 1 : 0));
+            [](const std::vector<Variant>& args, Environment&) -> Variant {
+                return Variant(static_cast<Integer>(args[0].GetTruthy() && args[1].GetTruthy() ? 1 : 0));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " AND " + ops[1]->List();
@@ -1075,8 +1075,8 @@ expr
     | expr KW_OR expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($1), take_expr($3)},
-            [](const std::vector<Value>& args, Environment&) -> Value {
-                return Value(static_cast<Integer>(args[0].GetTruthy() || args[1].GetTruthy() ? 1 : 0));
+            [](const std::vector<Variant>& args, Environment&) -> Variant {
+                return Variant(static_cast<Integer>(args[0].GetTruthy() || args[1].GetTruthy() ? 1 : 0));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return ops[0]->List() + " OR " + ops[1]->List();
@@ -1085,8 +1085,8 @@ expr
     | KW_NOT expr {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($2)},
-            [](const std::vector<Value>& args, Environment&) -> Value {
-                return Value(static_cast<Integer>(args[0].GetTruthy() ? 0 : 1));
+            [](const std::vector<Variant>& args, Environment&) -> Variant {
+                return Variant(static_cast<Integer>(args[0].GetTruthy() ? 0 : 1));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "NOT " + ops[0]->List();
@@ -1096,8 +1096,8 @@ expr
     | FN_ABS '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].AbsOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].AbsOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "ABS(" + ops[0]->List() + ")";
@@ -1106,8 +1106,8 @@ expr
     | FN_ATN '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].AtnOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].AtnOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "ATN(" + ops[0]->List() + ")";
@@ -1116,8 +1116,8 @@ expr
     | FN_COS '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].CosOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].CosOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "COS(" + ops[0]->List() + ")";
@@ -1126,8 +1126,8 @@ expr
     | FN_EXP '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].ExpOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].ExpOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "EXP(" + ops[0]->List() + ")";
@@ -1136,8 +1136,8 @@ expr
     | FN_INT '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].IntOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].IntOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "INT(" + ops[0]->List() + ")";
@@ -1146,8 +1146,8 @@ expr
     | FN_LOG '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].LogOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].LogOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "LOG(" + ops[0]->List() + ")";
@@ -1156,8 +1156,8 @@ expr
     | FN_RND '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].RndOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].RndOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "RND(" + ops[0]->List() + ")";
@@ -1166,8 +1166,8 @@ expr
     | FN_SGN '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].SgnOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].SgnOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "SGN(" + ops[0]->List() + ")";
@@ -1176,8 +1176,8 @@ expr
     | FN_SIN '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].SinOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].SinOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "SIN(" + ops[0]->List() + ")";
@@ -1186,8 +1186,8 @@ expr
     | FN_SQR '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].SqrOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].SqrOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "SQR(" + ops[0]->List() + ")";
@@ -1196,8 +1196,8 @@ expr
     | FN_TAN '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(args[0].TanOp(env));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(args[0].TanOp(env));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "TAN(" + ops[0]->List() + ")";
@@ -1206,8 +1206,8 @@ expr
     | FN_LEN '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                return Value(static_cast<Integer>(args[0].TryGetString(env, "LEN").size()));
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                return Variant(static_cast<Integer>(args[0].TryGetString(env, "LEN").size()));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "LEN(" + ops[0]->List() + ")";
@@ -1216,10 +1216,10 @@ expr
     | FN_ASC '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 const std::string& s = args[0].TryGetString(env, "ASC");
                 if (s.empty()) throw RuntimeError(env, "ASC: empty string");
-                return Value(static_cast<Integer>(static_cast<unsigned char>(s[0])));
+                return Variant(static_cast<Integer>(static_cast<unsigned char>(s[0])));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "ASC(" + ops[0]->List() + ")";
@@ -1228,9 +1228,9 @@ expr
     | FN_CHR '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 Integer code = static_cast<Integer>(args[0].TryGetInteger(env, "CHR$"));
-                return Value(std::string(1, static_cast<char>(code)));
+                return Variant(std::string(1, static_cast<char>(code)));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "CHR$(" + ops[0]->List() + ")";
@@ -1239,11 +1239,11 @@ expr
     | FN_STR '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                const Value& v = args[0];
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                const Variant& v = args[0];
                 if (!v.IsNumber())
                     throw RuntimeError(env, "STR$: expected numeric argument");
-                return Value(v.PPrint());
+                return Variant(v.PPrint());
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "STR$(" + ops[0]->List() + ")";
@@ -1252,10 +1252,10 @@ expr
     | FN_VAL '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 const std::string& s = args[0].TryGetString(env, "VAL");
 
-                Basic::Value val(s);
+                Basic::Variant val(s);
                 val.NormaliseType();
 
                 return val;
@@ -1267,9 +1267,9 @@ expr
     | FN_SPC '(' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 long n = static_cast<long>(args[0].TryGetInteger(env, "SPC"));
-                return Value(std::string(std::max(0L, n), ' '));
+                return Variant(std::string(std::max(0L, n), ' '));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "SPC(" + ops[0]->List() + ")";
@@ -1278,10 +1278,10 @@ expr
     | FN_LEFT '(' expr ',' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3), take_expr($5)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 std::string s = args[0].TryGetString(env, "LEFT$");
                 long n = args[1].TryGetInteger(env, "LEFT$");
-                return Value(s.substr(0, std::min((size_t)std::max(0L, n), s.size())));
+                return Variant(s.substr(0, std::min((size_t)std::max(0L, n), s.size())));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "LEFT$(" + ops[0]->List() + ", " + ops[1]->List() + ")";
@@ -1290,12 +1290,12 @@ expr
     | FN_RIGHT '(' expr ',' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3), take_expr($5)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 std::string s = args[0].TryGetString(env, "RIGHT$");
                 long n = args[1].TryGetInteger(env, "RIGHT$");
                 long start = (long)s.size() - n;
                 if (start < 0) start = 0;
-                return Value(s.substr(start));
+                return Variant(s.substr(start));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "RIGHT$(" + ops[0]->List() + ", " + ops[1]->List() + ")";
@@ -1304,22 +1304,22 @@ expr
     | FN_MID '(' expr ',' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3), take_expr($5)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                const Value& sv = args[0];
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                const Variant& sv = args[0];
                 if (!sv.IsString())
                     throw RuntimeError(env, "MID$: expected string argument");
 
                 const std::string s = sv.TryGetString(env, "MID$");
 
-                const Value& startv = args[1];
+                const Variant& startv = args[1];
                 if (!startv.IsNumber())
                     throw RuntimeError(env, "MID$: expected numeric argument");
 
                 Integer start = startv.TryGetInteger(env, "MID$");
 
                 if (start <= 0) start = 1;
-                if (start > (long)s.size()) return Value(std::string(""));
-                return Value(s.substr(start - 1));
+                if (start > (long)s.size()) return Variant(std::string(""));
+                return Variant(s.substr(start - 1));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "MID$(" + ops[0]->List() + ", " + ops[1]->List() + ")";
@@ -1328,28 +1328,28 @@ expr
     | FN_MID '(' expr ',' expr ',' expr ')' {
         $$ = new_expr(std::make_shared<LambdaExpression>(
             std::vector<ExpressionPtr>{take_expr($3), take_expr($5), take_expr($7)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
-                const Value& sv = args[0];
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
+                const Variant& sv = args[0];
                 if (!sv.IsString())
                     throw RuntimeError(env, "MID$: expected string argument");
 
                 const std::string s = sv.TryGetString(env, "MID$");
 
-                const Value& startv = args[1];
+                const Variant& startv = args[1];
                 if (!startv.IsNumber())
                     throw RuntimeError(env, "MID$: expected numeric argument");
 
                 Integer start = startv.TryGetInteger(env, "MID$");
 
-                const Value& lenv = args[2];
+                const Variant& lenv = args[2];
                 if (!lenv.IsNumber())
                     throw RuntimeError(env, "MID$: expected numeric argument");
 
                 Integer len = lenv.TryGetInteger(env, "MID$");
 
                 if (start <= 0) start = 1;
-                if (start > (long)s.size()) return Value(std::string(""));
-                return Value(s.substr(start - 1, len));
+                if (start > (long)s.size()) return Variant(std::string(""));
+                return Variant(s.substr(start - 1, len));
             },
             [](const std::vector<ExpressionPtr>& ops) {
                 return "MID$(" + ops[0]->List() + ", " + ops[1]->List() + ", " + ops[2]->List() + ")";
@@ -1358,8 +1358,8 @@ expr
     | '-' expr %prec UMINUS {
         // Unary minus is built as (0 - operand), so it lists as "0 - x".
         $$ = new_expr(std::make_shared<LambdaExpression>(
-            std::vector<ExpressionPtr>{MakeLiteral(Value(0)), take_expr($2)},
-            [](const std::vector<Value>& args, Environment& env) -> Value {
+            std::vector<ExpressionPtr>{MakeLiteral(Variant(0)), take_expr($2)},
+            [](const std::vector<Variant>& args, Environment& env) -> Variant {
                 return args[0].SubOp(args[1], env);
             },
             [](const std::vector<ExpressionPtr>& ops) {

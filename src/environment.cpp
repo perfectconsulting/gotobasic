@@ -36,21 +36,11 @@ namespace Basic {
 
 
 
-std::string LValue::List() const {
-    if (indices.empty()) return name;
-    std::string s = name + "(";
-    for (size_t i = 0; i < indices.size(); ++i) {
-        if (i > 0) s += ", ";
-        s += indices[i]->List();
-    }
-    return s + ")";
-}
-
 static bool IsStringVar(const std::string& name) {
     return !name.empty() && name.back() == '$';
 }
 
-void Environment::SetVariable(const std::string& name, const Value& value) {
+void Environment::SetVariable(const std::string& name, const Variant& value) {
     bool strVar = IsStringVar(name);
     bool strVal = value.IsString();
     if (strVar && !strVal)
@@ -60,10 +50,10 @@ void Environment::SetVariable(const std::string& name, const Value& value) {
     m_variables[name] = value;
 }
 
-Value Environment::GetVariable(const std::string& name) const {
+Variant Environment::GetVariable(const std::string& name) const {
     auto it = m_variables.find(name);
     if (it != m_variables.end()) return it->second;
-    return IsStringVar(name) ? Value(std::string("")) : Value(0);
+    return IsStringVar(name) ? Variant(std::string("")) : Variant(0);
 }
 
 int Environment::ArrayData::flatIndex(const std::vector<int>& indices) const {
@@ -81,7 +71,7 @@ Environment::ArrayData Environment::MakeArrayData(const std::string& name, const
     arr.isString = IsStringVar(name);
     int total    = 1;
     for (int d : dims) total *= (d + 1);
-    arr.data.assign(total, arr.isString ? Value(std::string("")) : Value(0));
+    arr.data.assign(total, arr.isString ? Variant(std::string("")) : Variant(0));
     return arr;
 }
 
@@ -111,7 +101,7 @@ void Environment::ValidateIndices(const std::string& name, const ArrayData& arr,
             throw RuntimeError(const_cast<Environment&>(*this), "array subscript out of range for '" + name + "'");
 }
 
-void Environment::SetArray(const std::string& name, const std::vector<int>& indices, const Value& value) {
+void Environment::SetArray(const std::string& name, const std::vector<int>& indices, const Variant& value) {
     ArrayData& arr = ResolveArray(name, indices.size());
     ValidateIndices(name, arr, indices);
     if (arr.isString && !value.IsString())
@@ -121,21 +111,21 @@ void Environment::SetArray(const std::string& name, const std::vector<int>& indi
     arr.data[arr.flatIndex(indices)] = value;
 }
 
-Value Environment::GetArray(const std::string& name, const std::vector<int>& indices) const {
+Variant Environment::GetArray(const std::string& name, const std::vector<int>& indices) const {
     ArrayData& arr = const_cast<Environment*>(this)->ResolveArray(name, indices.size());
     ValidateIndices(name, arr, indices);
     return arr.data[arr.flatIndex(indices)];
 }
 
-void Environment::Assign(const LValue& lv, const Value& val) {
-    if (lv.indices.empty()) {
-        SetVariable(lv.name, val);
+void Environment::Assign(const AssignTarget& target, const Variant& val) {
+    if (target.indices.empty()) {
+        SetVariable(target.name, val);
     } else {
         std::vector<int> idx;
-        idx.reserve(lv.indices.size());
-        for (auto& e : lv.indices)
+        idx.reserve(target.indices.size());
+        for (auto& e : target.indices)
             idx.push_back(e->Evaluate(*this).GetInteger());
-        SetArray(lv.name, idx, val);
+        SetArray(target.name, idx, val);
     }
 }
 
@@ -159,13 +149,13 @@ void Environment::DefFunction(const std::string& name, const std::string& param,
     m_functions[name] = { param, std::move(body) };
 }
 
-Value Environment::CallFunction(const std::string& name, const Value& arg) {
+Variant Environment::CallFunction(const std::string& name, const Variant& arg) {
     auto it = m_functions.find(name);
     if (it == m_functions.end())
         throw RuntimeError(*this, "undefined function '" + name + "'");
-    Value saved = GetVariable(it->second.param);
+    Variant saved = GetVariable(it->second.param);
     m_variables[it->second.param] = arg;
-    Value result = it->second.body->Evaluate(*this);
+    Variant result = it->second.body->Evaluate(*this);
     m_variables[it->second.param] = saved;
     return result;
 }

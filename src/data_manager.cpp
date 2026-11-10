@@ -25,11 +25,11 @@
 
 namespace Basic {
 
-void DataManager::AddData(int lineNumber, const std::vector<Value>& values) {
+void DataManager::AddData(int lineNumber, const std::vector<Variant>& values) {
     m_dataMap[lineNumber] = std::move(values);
 }
 
-const Value DataManager::ReadData(Environment& env) {
+const Variant DataManager::ReadData(Environment& env) {
     if (!HasData()) {
         throw RuntimeError(env, "READ: no DATA available");
     }
@@ -47,7 +47,7 @@ const Value DataManager::ReadData(Environment& env) {
 void  DataManager::RestoreData(int lineNumber, bool bAllowErrors){
     if (!HasData()) {
         DataLineMap::iterator m_currentDataMapit = m_dataMap.end();
-        DataValueVector::iterator m_currentDataVectorit = m_dataMap.end()->second.end();
+        DataVariantVector::iterator m_currentDataVectorit = m_dataMap.end()->second.end();
         return;
     };
 

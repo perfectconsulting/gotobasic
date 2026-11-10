@@ -29,33 +29,34 @@
 #include <unordered_map>
 #include <vector>
 #include "forward_references.hpp"
-#include "value.hpp"
+#include "assign_target.hpp"
+#include "variant.hpp"
 #include "data_manager.hpp"
 #include "program_manager.hpp"
 
 namespace Basic {
 
-class Value;
+class Variant;
 
 class Environment {
 public:
     Environment() : m_dataManager(*this), m_programManager(*this) {}
 
-    void  SetVariable(const std::string& name, const Value& value);
-    Value GetVariable(const std::string& name) const;
+    void  SetVariable(const std::string& name, const Variant& value);
+    Variant GetVariable(const std::string& name) const;
 
     void  DimArray(const std::string& name, const std::vector<int>& dims);
-    void  SetArray(const std::string& name, const std::vector<int>& indices, const Value& value);
-    Value GetArray(const std::string& name, const std::vector<int>& indices) const;
+    void  SetArray(const std::string& name, const std::vector<int>& indices, const Variant& value);
+    Variant GetArray(const std::string& name, const std::vector<int>& indices) const;
 
-    // Assign to an LValue (handles both scalar and array).
-    void  Assign(const LValue& lv, const Value& val);
+    // Assign to an AssignTarget (handles both scalar and array).
+    void  Assign(const AssignTarget& target, const Variant& val);
 
     void ClearVariables();
     void ResetVariablesAndArrays();
 
     void  DefFunction(const std::string& name, const std::string& param, ExpressionPtr body);
-    Value CallFunction(const std::string& name, const Value& arg);
+    Variant CallFunction(const std::string& name, const Variant& arg);
 
     void  Randomize(long seed = -1);
     DataManager& GetDataManager() { return m_dataManager; }
@@ -64,7 +65,7 @@ public:
 private:
     struct ArrayData {
         std::vector<int>   dims;
-        std::vector<Value> data;
+        std::vector<Variant> data;
         bool               isString;
         int flatIndex(const std::vector<int>& indices) const;
     };
@@ -78,7 +79,7 @@ private:
     ArrayData& ResolveArray(const std::string& name, size_t rank);
     void ValidateIndices(const std::string& name, const ArrayData& arr, const std::vector<int>& indices) const;
 
-    std::unordered_map<std::string, Value>     m_variables;
+    std::unordered_map<std::string, Variant>     m_variables;
     std::unordered_map<std::string, ArrayData> m_arrays;
     std::unordered_map<std::string, FnDef>     m_functions;
 

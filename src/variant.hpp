@@ -1,6 +1,6 @@
 /*
  *
- *    value.hpp
+ *    variant.hpp
  *    Version 1.00 (C++17)  
  * 
  *    Copyright 2026 Steven Janes (www.perfectconsulting.co.uk)
@@ -36,13 +36,13 @@ using String = std::string;
 
 class Environment;
 
-class Value {
+class Variant {
     public:
-        Value() : m_data(Integer(0)) { }
-        Value(Real r) : m_data(r) { }
-        Value(String s) : m_data(std::move(s)) { }
-        Value(Integer i) : m_data(i) { }
-        Value(const Value& value) = default;
+        Variant() : m_data(Integer(0)) { }
+        Variant(Real r) : m_data(r) { }
+        Variant(String s) : m_data(std::move(s)) { }
+        Variant(Integer i) : m_data(i) { }
+        Variant(const Variant& value) = default;
 
         void SetInteger(Integer i) { m_data = i; }
         void SetReal(Real r) { m_data = r; }
@@ -66,40 +66,29 @@ class Value {
         String PPrint(const bool quoteString = false) const;  
         void NormaliseType(bool forceString = false);
 
-        Value AddOp(const Value& value, Environment& env) const;
-        Value SubOp(const Value& value, Environment& env) const;
-        Value MulOp(const Value& value, Environment& env) const;
-        Value DivOp(const Value& value, Environment& env) const;
-        Value PowOp(const Value& value, Environment& env) const;
+        Variant AddOp(const Variant& value, Environment& env) const;
+        Variant SubOp(const Variant& value, Environment& env) const;
+        Variant MulOp(const Variant& value, Environment& env) const;
+        Variant DivOp(const Variant& value, Environment& env) const;
+        Variant PowOp(const Variant& value, Environment& env) const;
 
-        Value AbsOp(Environment& env) const;
-        Value AtnOp(Environment& env) const;
-        Value CosOp(Environment& env) const;
-        Value SinOp(Environment& env) const;
-        Value TanOp(Environment& env) const;
+        Variant AbsOp(Environment& env) const;
+        Variant AtnOp(Environment& env) const;
+        Variant CosOp(Environment& env) const;
+        Variant SinOp(Environment& env) const;
+        Variant TanOp(Environment& env) const;
 
-        Value ExpOp(Environment& env) const;
-        Value SqrOp(Environment& env) const;
-        Value IntOp(Environment& env) const;
-        Value SgnOp(Environment& env) const;
-        Value LogOp(Environment& env) const;
-        Value RndOp(Environment& env) const;
+        Variant ExpOp(Environment& env) const;
+        Variant SqrOp(Environment& env) const;
+        Variant IntOp(Environment& env) const;
+        Variant SgnOp(Environment& env) const;
+        Variant LogOp(Environment& env) const;
+        Variant RndOp(Environment& env) const;
 
 
-        int CompareOp(const Value& value, Environment& env) const;
+        int CompareOp(const Variant& value, Environment& env) const;
     private:
         std::variant<Integer, Real, String> m_data;
 };
-
-// ── Unified l-value: a variable name plus optional index expressions. ──
-// Used by LET, INPUT, READ, and FOR – all assignment targets share this type.
-struct LValue {
-    std::string          name;
-    std::vector<ExpressionPtr> indices;  // empty → scalar
-
-    bool isString()  const { return !name.empty() && name.back() == '$'; }
-    std::string List() const;
-};
-
 
 } // namespace Basic

@@ -41,7 +41,7 @@ ADD_FLEX_BISON_DEPENDENCY(BasicLexer BasicParser)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/value.cpp
+    src/variant.cpp
     src/error.cpp
     src/environment.cpp
     src/expression.cpp

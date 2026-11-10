@@ -27,13 +27,13 @@
 #include <vector>
 #include "forward_references.hpp"
 #include "expression.hpp"
-#include "value.hpp"
+#include "variant.hpp"
 
 namespace Basic {
 
 class Environment;
 
-using StatementFn    = std::function<void(const std::vector<Value>&, Environment&)>;
+using StatementFn    = std::function<void(const std::vector<Variant>&, Environment&)>;
 using StmtListFn     = std::function<std::string(const std::vector<ExpressionPtr>&)>;
 
 // Statement defers Execute()/List() to a captured lambda rather than

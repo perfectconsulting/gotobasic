@@ -25,14 +25,14 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "value.hpp"
+#include "variant.hpp"
 
 namespace Basic {
 
 class Environment;
 
-using DataValueVector = std::vector<Value>;
-using DataLineMap   = std::map<int, DataValueVector>;
+using DataVariantVector = std::vector<Variant>;
+using DataLineMap   = std::map<int, DataVariantVector>;
 
 class DataManager {
 public:
@@ -40,14 +40,14 @@ public:
 
     void ClearData() { m_dataMap.clear(); m_currentDataMapit = m_dataMap.end(); m_currentDataVectorit = m_dataMap.end()->second.end(); }
     bool HasData() const { return !m_dataMap.empty(); }
-    void AddData(int lineNumber, const std::vector<Value>& values);
-    const Value ReadData(Environment& env);
+    void AddData(int lineNumber, const std::vector<Variant>& values);
+    const Variant ReadData(Environment& env);
     void RestoreData(int lineNumber = -1, bool bAllowErrors = false);
     std::string ListDataInRange(int first, int last) const;
 private:
     DataLineMap m_dataMap;
     DataLineMap::iterator m_currentDataMapit = m_dataMap.end();
-    DataValueVector::iterator m_currentDataVectorit = m_dataMap.end()->second.end();
+    DataVariantVector::iterator m_currentDataVectorit = m_dataMap.end()->second.end();
     Environment& m_environment;
 };
 

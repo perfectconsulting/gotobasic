@@ -253,7 +253,7 @@ void ProgramManager::Stop() {
     End();
 }
 
-void ProgramManager::For(const std::string& variable, Value& start, Value& limit, Value& step) {
+void ProgramManager::For(const std::string& variable, Variant& start, Variant& limit, Variant& step) {
     if (!start.IsNumber() || !limit.IsNumber() || !step.IsNumber()) {
         throw RuntimeError(m_environment, "FOR: expected numeric values");
     }
@@ -290,8 +290,8 @@ void ProgramManager::Next(const std::string& variable) {
         throw RuntimeError(m_environment, "NEXT variable does not match FOR variable");
     }
 
-    Value currentValue = m_environment.GetVariable(frame.m_variable);
-    Value newValue = currentValue.AddOp(frame.m_step, m_environment);
+    Variant currentValue = m_environment.GetVariable(frame.m_variable);
+    Variant newValue = currentValue.AddOp(frame.m_step, m_environment);
     m_environment.SetVariable(frame.m_variable, newValue);
 
     bool loopConditionMet = false;
@@ -309,7 +309,7 @@ void ProgramManager::Next(const std::string& variable) {
     }
 }
 
-void ProgramManager::While(const Value& condition, RuntimeIP& wendip) {
+void ProgramManager::While(const Variant& condition, RuntimeIP& wendip) {
     if(!condition.GetTruthy()) {
         if (! wendip.Valid(m_programLines)) {
             throw RuntimeError(m_environment, "WHILE: matching WEND not found");

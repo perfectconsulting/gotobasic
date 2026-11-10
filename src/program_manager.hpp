@@ -30,7 +30,7 @@
 #include <vector>
 #include "forward_references.hpp"
 #include "runtime_ip.hpp"
-#include "value.hpp"
+#include "variant.hpp"
 
 namespace Basic {
 
@@ -80,10 +80,10 @@ public:
     void End();
     void Stop();
 
-    void For(const std::string& variable, Value& start, Value& limit, Value& step);
+    void For(const std::string& variable, Variant& start, Variant& limit, Variant& step);
     void Next(const std::string& variable);
     
-    void While(const Value& condition, RuntimeIP& wendip);
+    void While(const Variant& condition, RuntimeIP& wendip);
     void Wend(RuntimeIP& whileip);
 
     // WHILE/WEND matching table. Populated at *parse* time (one entry per
@@ -115,11 +115,11 @@ public:
 
 private:
     struct ForFrame {
-        ForFrame(const std::string& variable, const Value& step, const Value& limit, RuntimeIP& ip) : m_variable(variable), m_step(step), m_limit(limit), m_ip(ip) {}
+        ForFrame(const std::string& variable, const Variant& step, const Variant& limit, RuntimeIP& ip) : m_variable(variable), m_step(step), m_limit(limit), m_ip(ip) {}
 
         std::string m_variable;
-        Value m_step;
-        Value m_limit;
+        Variant m_step;
+        Variant m_limit;
         RuntimeIP m_ip;
     };
 
