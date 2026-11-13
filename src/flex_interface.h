@@ -46,7 +46,7 @@ static bool ParseLine(const std::string& line, Basic::Environment& env) {
     // extract and store the line number before the line is parsed.
     
     size_t i = line.find_first_not_of(' ');
-    int lineNumber = i != std::string::npos && std::isdigit(line[i]) ? std::stoi(line) : -1;
+    int lineNumber = i != std::string::npos && std::isdigit(line[i]) ? std::stoi(line) : 0;
 
     env.GetProgramManager().SetCurrentParseLineNumber(lineNumber);
     yycolumn     = 1;

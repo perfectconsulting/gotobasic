@@ -43,7 +43,7 @@ bool RuntimeIP::Next(ProgramLineMap& programLines) {
 
     if (m_statement.expired()) {
         ProgramLineMap::iterator it = programLines.find(m_lineNumber);
-        if (it == programLines.end() || ++it == programLines.end()) {
+        if (it == programLines.end() || ++it == programLines.end() || m_lineNumber == 0) {
             m_lineNumber = -1;
             m_statement.reset();
             return false;

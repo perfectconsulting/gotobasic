@@ -146,8 +146,11 @@ line
     | command '\n' {
         take_stmt($1)->Execute(env);
     }
-    | stmt '\n' {
-        take_stmt($1)->Execute(env);
+    /* All direct commands (those without an explicit line number) default to line number 0. */
+    | stmtlist '\n' {
+        env.GetProgramManager().AddStatementToCurrentLine(take_stmt($1));
+        env.GetProgramManager().Run();
+        env.GetProgramManager().DeleteLines(0, 0);
     }
     | INTEGER KW_DATA constlist '\n' {
         env.GetDataManager().AddData((int)$1, *$3);

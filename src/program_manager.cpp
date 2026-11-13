@@ -194,10 +194,11 @@ void ProgramManager::Run() {
 
             currentStatement->Execute(m_environment);
 
-
             if(m_proccessNextStatement)
             {
-                m_ip.Next(m_programLines);
+                if (!m_ip.Next(m_programLines)) {
+                    End();
+                }
             }
 
             m_proccessNextStatement = true;
