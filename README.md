@@ -1,6 +1,6 @@
 # GOTO BASIC
 
-A line-numbered BASIC interpreter written in C++17, using **Flex** for lexing and **Bison** for parsing. It's loosely modelled on **Dartmouth BASIC** (the classic dialect behind most 1970s/80s microcomputer BASICs), with a handful of personal extensions layered on top — most notably `WHILE`/`WEND`, `TRON`/`TROFF`, auto-dimensioning of arrays, and a couple of interpreter housekeeping commands (`TRON`, `CLS`, etc).
+A line-numbered BASIC interpreter written in C++17, using **Flex** for lexing and **Bison** for parsing. It's loosely modelled on **Dartmouth BASIC** (the classic dialect behind most 1970s/80s microcomputer BASICs), with a handful of personal extensions layered on top — most notably `WHILE`/`WEND`, `TRON`/`TROFF`, auto-dimensioning of arrays, and a few interpreter housekeeping commands (`LOAD`, `SAVE`, `NEW`, `CLS`, etc).
 
 You type in a program line by line, each line starting with a line number, and `RUN` it — exactly like BASIC on a 1970s/80s minicomputer or microcomputer terminal.
 
@@ -291,7 +291,6 @@ src/
   runtime_ip.hpp/.cpp    Runtime instruction pointer / control flow (loops, GOSUB stack)
   error.hpp/.cpp         Error types
   parse_error.hpp        Parse error line-reading helper
-  assign_target.hpp      The target of an assignment-like operation
   main.cpp               Entry point (REPL and file-run modes)
 tests/                  Numbered regression scripts (01-47) plus hangman.bas and basic_trek.bas (+ variants)
 CMakeLists.txt          Build configuration (Flex/Bison + C++17)
