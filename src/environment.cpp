@@ -31,10 +31,21 @@
 #include "expression.hpp"
 #include "flex_interface.h"
 #include "parse_error.hpp"
+#include <algorithm>
+#include <cctype>
+#include <string>
 
 namespace Basic {
 
+static std::string ToUpper(std::string str)
+{
+    std::transform(str.begin(), str.end(), str.begin(),
+        [](unsigned char c) {
+            return std::toupper(c);
+        });
 
+    return str;
+}
 
 static bool IsStringVar(const std::string& name) {
     return !name.empty() && name.back() == '$';
@@ -47,11 +58,11 @@ void Environment::SetVariable(const std::string& name, const Variant& value) {
         throw RuntimeError(*this, "type mismatch: cannot assign number to string variable '" + name + "'");
     if (!strVar && strVal)
         throw RuntimeError(*this, "type mismatch: cannot assign string to numeric variable '" + name + "'");
-    m_variables[name] = value;
+    m_variables[ToUpper(name)] = value;
 }
 
 Variant Environment::GetVariable(const std::string& name) const {
-    auto it = m_variables.find(name);
+    auto it = m_variables.find(ToUpper(name));
     if (it != m_variables.end()) return it->second;
     return IsStringVar(name) ? Variant(std::string("")) : Variant(0);
 }

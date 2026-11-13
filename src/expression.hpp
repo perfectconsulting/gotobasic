@@ -31,6 +31,23 @@
 
 namespace Basic {
 
+// The target of an assignment-like operation: a variable name plus optional
+// index expressions, e.g. A, A$, or A(I, J+1). Used by LET, INPUT, READ and
+// FOR. This is a purely syntactic reference; the index expressions are only
+// evaluated (and the name resolved to real storage) when it is passed to
+// Environment::Assign().
+//
+// List() is defined in expression.cpp, where Expression is a complete type.
+class AssignTarget {
+public:
+    bool        isString() const { return !name.empty() && name.back() == '$'; }
+    std::string List() const;
+
+    std::string                name;
+    std::vector<ExpressionPtr> indices;  // empty -> scalar
+
+};
+
 class Expression {
 public:
     virtual ~Expression() = default;

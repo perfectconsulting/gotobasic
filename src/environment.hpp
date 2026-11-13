@@ -29,7 +29,6 @@
 #include <unordered_map>
 #include <vector>
 #include "forward_references.hpp"
-#include "assign_target.hpp"
 #include "variant.hpp"
 #include "data_manager.hpp"
 #include "program_manager.hpp"
@@ -37,6 +36,7 @@
 namespace Basic {
 
 class Variant;
+class AssignTarget;
 
 class Environment {
 public:
